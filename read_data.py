@@ -7,9 +7,9 @@ def read_stock_data(db_path="stocks.db"):
     con = duckdb.connect(db_path)
     
     # Query data
-    df = con.execute("SELECT * FROM stock_prices LIMIT 10").df()
+    df = con.execute("SELECT * FROM stock_prices WHERE ticker = 'NVDA' ORDER BY date DESC LIMIT 10").df()
     
-    print("\nFirst 10 rows of stock data:")
+    print("\nLast 10 rows of NVDA stock data:")
     print(df)
     
     # Get total count

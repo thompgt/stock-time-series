@@ -3,7 +3,7 @@ import duckdb
 import pandas as pd
 import os
 
-def fetch_and_save(ticker="AAPL", period="5y", db_path="stocks.db"):
+def fetch_and_save(ticker="NVDA", period="5y", db_path="stocks.db"):
     print(f"Fetching data for {ticker}...")
     # Fetch data
     df = yf.download(ticker, period=period)
