@@ -15,10 +15,9 @@ def check_stationarity(series, name):
     return result[1] < 0.05
 
 def run_stationarity_pipeline(db_path="stocks.db", ticker="NVDA"):
-    # Load data
-    con = duckdb.connect(db_path)
-    df = con.execute(f"SELECT date, close FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
-    con.close()
+    # Load data using context manager
+    with duckdb.connect(db_path) as con:
+        df = con.execute(f"SELECT date, close FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
     
     series = df['close']
     

@@ -6,11 +6,9 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 def run_correlation_analysis(db_path="stocks.db"):
     print("Loading data for correlation analysis...")
-    con = duckdb.connect(db_path)
-    
-    # Load all data
-    df = con.execute("SELECT date, close, ticker FROM stock_prices ORDER BY date").df()
-    con.close()
+    with duckdb.connect(db_path) as con:
+        # Load all data
+        df = con.execute("SELECT date, close, ticker FROM stock_prices ORDER BY date").df()
     
     # Pivot to get tickers as columns
     pivot_df = df.pivot(index='date', columns='ticker', values='close').dropna()

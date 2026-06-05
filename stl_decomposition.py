@@ -6,10 +6,9 @@ from statsmodels.tsa.seasonal import STL
 def run_stl_decomposition(db_path="stocks.db", ticker="NVDA"):
     print(f"Running STL Decomposition for {ticker}...")
     
-    # Load data
-    con = duckdb.connect(db_path)
-    df = con.execute(f"SELECT date, close FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
-    con.close()
+    # Load data using context manager
+    with duckdb.connect(db_path) as con:
+        df = con.execute(f"SELECT date, close FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
     
     df['date'] = pd.to_datetime(df['date'])
     df.set_index('date', inplace=True)

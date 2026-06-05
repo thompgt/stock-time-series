@@ -22,11 +22,15 @@ def fetch_and_save(ticker="NVDA", period="5y", db_path="stocks.db"):
     df['ticker'] = ticker
 
     print(f"Saving to DuckDB: {db_path}...")
-    # Connect to DuckDB and save
-    con = duckdb.connect(db_path)
-    con.execute("CREATE TABLE IF NOT EXISTS stock_prices AS SELECT * FROM df WHERE 1=0")
-    con.execute("INSERT INTO stock_prices SELECT * FROM df")
-    con.close()
+    # Connect to DuckDB and save using context manager
+    with duckdb.connect(db_path) as con:
+        con.execute("CREATE TABLE IF NOT EXISTS stock_prices AS SELECT * FROM df WHERE 1=0")
+        
+        # Prevent duplication: delete existing data for this ticker
+        con.execute("DELETE FROM stock_prices WHERE ticker = ?", [ticker])
+        
+        # Insert new data
+        con.execute("INSERT INTO stock_prices SELECT * FROM df")
     
     print("Data successfully saved.")
 

@@ -8,6 +8,8 @@ class TimeSeriesPreprocessor:
         self.df = df.copy()
         self.target_col = target_col
         self.scaler = None
+        self.train_df = None
+        self.test_df = None
 
     def log_transform(self):
         print("Applying log transform...")
@@ -35,38 +37,58 @@ class TimeSeriesPreprocessor:
             self.df[f'rolling_std_{w}'] = self.df[col].rolling(window=w).std()
         return self
 
+    def train_test_split(self, train_size=0.8):
+        print(f"Performing time-series split (train_size={train_size})...")
+        self.df = self.df.dropna()
+        split_idx = int(len(self.df) * train_size)
+        self.train_df = self.df.iloc[:split_idx].copy()
+        self.test_df = self.df.iloc[split_idx:].copy()
+        return self
+
     def scale(self, method='standard'):
-        print(f"Applying {method} scaling...")
-        self.scaler = StandardScaler() if method == 'standard' else MinMaxScaler()
-        # Scale only numeric columns, excluding date/ticker
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        self.df[numeric_cols] = self.scaler.fit_transform(self.df[numeric_cols])
+        if self.train_df is None:
+            print("Warning: fit_transform applied to entire dataset. Call train_test_split first for ML safety.")
+            self.scaler = StandardScaler() if method == 'standard' else MinMaxScaler()
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            self.df[numeric_cols] = self.scaler.fit_transform(self.df[numeric_cols])
+        else:
+            print(f"Applying {method} scaling with Data Leakage protection...")
+            self.scaler = StandardScaler() if method == 'standard' else MinMaxScaler()
+            numeric_cols = self.train_df.select_dtypes(include=[np.number]).columns
+            
+            # Fit only on training data
+            self.train_df[numeric_cols] = self.scaler.fit_transform(self.train_df[numeric_cols])
+            
+            # Transform test data using training parameters
+            self.test_df[numeric_cols] = self.scaler.transform(self.test_df[numeric_cols])
         return self
 
     def get_data(self):
+        if self.train_df is not None:
+            return self.train_df, self.test_df
         return self.df.dropna()
 
 def run_preprocessing_pipeline(db_path="stocks.db", ticker="NVDA"):
     print(f"Running preprocessing pipeline for {ticker}...")
-    con = duckdb.connect(db_path)
-    df = con.execute(f"SELECT * FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
-    con.close()
+    with duckdb.connect(db_path) as con:
+        df = con.execute(f"SELECT * FROM stock_prices WHERE ticker = '{ticker}' ORDER BY date").df()
     
     preprocessor = TimeSeriesPreprocessor(df)
     
-    processed_df = (preprocessor
+    train, test = (preprocessor
                     .log_transform()
                     .difference()
                     .add_lags(n_lags=3)
                     .add_rolling_features(windows=[5, 10])
+                    .train_test_split(train_size=0.8)
                     .scale(method='standard')
                     .get_data())
     
-    print("\nPreprocessed Data Sample (First 5 rows):")
-    print(processed_df.head())
-    print(f"\nShape of processed data: {processed_df.shape}")
+    print("\nPreprocessed Train Data Sample (First 5 rows):")
+    print(train.head())
+    print(f"\nTrain shape: {train.shape}, Test shape: {test.shape}")
     
-    return processed_df
+    return train, test
 
 if __name__ == "__main__":
     run_preprocessing_pipeline()
